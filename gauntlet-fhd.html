@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<title>GAUNTLET FHD 1920x1080 - 4T</title>
+<style>
+body{background:#02060a;color:#e2e8f0;font-family:monospace;overflow:hidden;margin:0}
+#header{display:flex;justify-content:space-between;padding:10px 16px;background:#0a0e17;border-bottom:1px solid #1e293b}
+.badge{background:#ffd700;color:#000;padding:2px 8px;border-radius:4px;font-weight:bold}
+#gameWrap{width:100vw;height:calc(100vh - 44px);display:flex;align-items:center;justify-content:center;background:#071a2e}
+canvas{max-width:100%;max-height:100%;aspect-ratio:16/9;border:1px solid #1e293b}
+#controls{position:absolute;bottom:12px;left:12px;font-size:10px;background:rgba(10,14,23,.9);padding:8px 12px;border-radius:8px}
+</style>
+</head>
+<body>
+<div id="header">
+<h1>GAUNTLET FHD 1920×1080 — PIRAT / GHOST / SCI-FI / NAV</h1>
+<div><span class="badge">FHD 1920×1080</span> <span id="score"></span> <span id="hp"></span> <label><input type="checkbox" id="prismToggle"/> PRISMATIC</label></div>
+</div>
+<div id="gameWrap"><canvas id="c" width="1920" height="1080"></canvas>
+<div id="controls">WASD/Arrows = Leader | 1-4 = wechseln | SPACE = Attack / Arithmetik | Meer=Crab Insel=Ghost/Wraith Deck=Sci-Fi only on Board — nie All, wenn All dann Erde</div></div>
+<script>
+// FHD Logik: U=1920 H=1080, alles skaliert mit SR=1.9
+const U=1920,H=1080;
+const players=[{id:0,name:"PIRAT",x:299,y:236,hp:100,max:100,score:0,color:"#ff3b30",accent:"#ffd700"},{id:1,name:"GHOST",x:384,y:236,hp:80,max:80,score:0,color:"#7afcff",accent:"#fff"},{id:2,name:"SCI-FI",x:299,y:304,hp:90,max:90,score:0,color:"#a855f7",accent:"#00ccff"},{id:3,name:"NAV",x:384,y:304,hp:100,max:100,score:0,color:"#00cc88",accent:"#ffd700"}];
+let leader=0,keys={},treasures=[],enemies=[],prismatic=false,T=0,particles=[];
+const ops=["+","-","*"];
+const rand=(a,b)=>a+Math.random()*(b-a);
+function makeTreasure(){const zones=["sea","island","board"];const zone=zones[Math.floor(Math.random()*3)];let x,y;if(zone==="board"){x=U/2-298+Math.random()*597;y=H/2-185+Math.random()*371}else if(zone==="sea"){x=Math.random()<0.5?20+Math.random()*170:U-213+Math.random()*170;y=40+Math.random()*(H-80)}else{x=80+Math.random()*(U-160);y=80+Math.random()*(H-200);if(Math.hypot(x-U/2,y-H/2)<256)x+=384}const a=Math.floor(rand(1,20)),b=Math.floor(rand(1,20)),op=ops[Math.floor(Math.random()*3)];return{id:Math.random(),x,y,zone,a,b,op,ans:op==="+"?a+b:op==="-"?a-b:a*b,picked:false,hue:Math.random()*360}}
+for(let i=0;i<12;i++)treasures.push(makeTreasure());
+function makeEnemy(){const zones=["sea","island","board"];const zone=zones[Math.floor(Math.random()*3)];let x,y,type;if(zone==="board"){x=U/2-255+Math.random()*511;y=H/2-191+Math.random()*383;type="scifi"}else if(zone==="sea"){x=Math.random()<0.5?64+Math.random()*128:U-192+Math.random()*128;y=213+Math.random()*(H-426);type="crab"}else{x=213+Math.random()*(U-426);y=213+Math.random()*(H-426);if(Math.hypot(x-U/2,y-H/2)<277)x+=426;type=Math.random()<0.5?"ghost":"wraith"}return{id:Math.random(),x,y,zone,type,vx:0,vy:0,hp:30}}
+for(let i=0;i<18;i++)enemies.push(makeEnemy());
+const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+const dpr=window.devicePixelRatio||1;canvas.width=1920*dpr;canvas.height=1080*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+document.getElementById("prismToggle").addEventListener("change",e=>prismatic=e.target.checked);
+window.addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if(["1","2","3","4"].includes(e.key))leader=parseInt(e.key)-1;if(e.code==="Space"){e.preventDefault();attack()}});
+window.addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false});
+function spawnPrism(x,y){if(!prismatic)return;for(let i=0;i<12;i++)particles.push({x,y,vx:Math.cos(i*Math.PI/6)*rand(2,8),vy:Math.sin(i*Math.PI/6)*rand(2,8),life:1,hue:i*30})}
+function attack(){const p=players[leader];for(let t of treasures){if(t.picked)continue;if(Math.hypot(p.x-t.x,p.y-t.y)<186){const ans=prompt(`Arithmetik: ${t.a} ${t.op} ${t.b} = ?`);if(ans!==null&&parseInt(ans)===t.ans){t.picked=true;p.score+=100;treasures.push(makeTreasure());spawnPrism(t.x,t.y)}else p.hp=Math.max(0,p.hp-10)}}for(let e of enemies){if(Math.hypot(p.x-e.x,p.y-e.y)<175){e.hp-=8;if(e.hp<=0){enemies.splice(enemies.indexOf(e),1);enemies.push(makeEnemy());p.score+=20;spawnPrism(e.x,e.y)}}}}
+function update(){T++;let dx=0,dy=0;if(keys["w"]||keys["arrowup"])dy-=1;if(keys["s"]||keys["arrowdown"])dy+=1;if(keys["a"]||keys["arrowleft"])dx-=1;if(keys["d"]||keys["arrowright"])dx+=1;const len=Math.hypot(dx,dy);if(len>0){dx=dx/len*6.1;dy=dy/len*6.1;const p=players[leader];p.x=Math.max(23,Math.min(U-23,p.x+dx));p.y=Math.max(23,Math.min(H-23,p.y+dy))}const offs=[{x:-77,y:-40},{x:77,y:-40},{x:-77,y:40},{x:77,y:40}];for(let i=0;i<players.length;i++){if(i===leader)continue;const p=players[i],lead=players[leader],idx=i<leader?i:i-1,off=offs[idx];p.x+=(lead.x+off.x-p.x)*0.06;p.y+=(lead.y+off.y-p.y)*0.06}for(let e of enemies){const tg=players[leader];const ang=Math.atan2(tg.y-e.y,tg.x-e.x);e.vx+=Math.cos(ang)*0.23;e.vy+=Math.sin(ang)*0.23;e.vx*=0.92;e.vy*=0.92;e.x+=e.vx;e.y+=e.vy;if(Math.hypot(e.x-tg.x,e.y-tg.y)<42)tg.hp=Math.max(0,tg.hp-0.18)}for(let pt of particles){pt.x+=pt.vx;pt.y+=pt.vy;pt.vx*=0.98;pt.vy*=0.98;pt.life-=0.02}particles=particles.filter(p=>p.life>0);if(prismatic)for(let t of treasures)t.hue=(t.hue+2)%360;document.getElementById("score").textContent="Score: "+players.reduce((s,p)=>s+p.score,0);document.getElementById("hp").textContent=players.map(p=>`${p.name}:${Math.round(p.hp)}`).join(" | ")}
+function draw(){ctx.fillStyle="#071a2e";ctx.fillRect(0,0,1920,1080);ctx.fillStyle="rgba(255,255,255,0.04)";for(let y=0;y<1080;y+=42)for(let x=0;x<1920;x+=42)if((x+y)%84===0)ctx.fillRect(x,y,4,4);const grad=ctx.createRadialGradient(960,582,152,960,582,722);grad.addColorStop(0,"#1e3a2e");grad.addColorStop(1,"#c2b280");ctx.fillStyle=grad;ctx.beginPath();ctx.ellipse(960,582,768,405,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#3a2a1a";ctx.beginPath();ctx.roundRect(662,355,597,371,34);ctx.fill();for(let t of treasures){if(t.picked)continue;const bob=Math.sin(Date.now()*0.003+t.id)*11;ctx.save();ctx.translate(t.x,t.y+bob);ctx.fillStyle=prismatic?`hsl(${t.hue},100%,60%)`:"#ffd700";if(prismatic){ctx.shadowColor=`hsl(${t.hue},100%,60%)`;ctx.shadowBlur=20}ctx.fillRect(-23,-19,46,27);ctx.fillStyle="#000";ctx.font="bold 19px monospace";ctx.textAlign="center";ctx.fillText(`${t.a}${t.op}${t.b}`,0,-27);ctx.restore()}for(let e of enemies){ctx.save();ctx.translate(e.x,e.y);if(e.type==="ghost"){ctx.fillStyle="#7afcff";ctx.beginPath();ctx.arc(0,0,23,Math.PI,0);ctx.lineTo(23,23);ctx.lineTo(-23,23);ctx.closePath();ctx.fill()}else if(e.type==="wraith"){ctx.strokeStyle="#a855f7";ctx.lineWidth=3;for(let r=11;r<42;r+=8){ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke()}}else if(e.type==="scifi"){ctx.fillStyle="#00ccff";ctx.fillRect(-19,-19,38,38)}else{ctx.fillStyle="#ff6b35";ctx.beginPath();ctx.ellipse(0,0,23,15,0,0,Math.PI*2);ctx.fill()}ctx.restore()}for(let i=0;i<players.length;i++){const p=players[i];const isLead=i===leader;ctx.save();ctx.translate(p.x,p.y);if(isLead){ctx.setLineDash([8,8]);ctx.strokeStyle="#fff";ctx.beginPath();ctx.arc(0,0,49,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}if(prismatic){ctx.shadowColor=`hsl(${(T*2+i*90)%360},100%,60%)`;ctx.shadowBlur=isLead?30:15;ctx.strokeStyle=`hsl(${(T*2+i*90)%360},100%,60%)`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,isLead?53:46,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0}ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(0,0,23,0,Math.PI*2);ctx.fill();ctx.fillStyle=p.accent;ctx.fillRect(-26,-42,53,8);ctx.fillStyle="#000";ctx.fillRect(-26,-42,53*(p.hp/p.max),8);ctx.fillStyle="#fff";ctx.font="bold 17px monospace";ctx.textAlign="center";ctx.fillText(p.name,0,50);ctx.restore()}for(let pt of particles){ctx.save();ctx.globalAlpha=pt.life;ctx.fillStyle=`hsl(${pt.hue},100%,60%)`;ctx.beginPath();ctx.arc(pt.x,pt.y,6*pt.life,0,Math.PI*2);ctx.fill();ctx.restore()}}
+function loop(){update();draw();requestAnimationFrame(loop)}loop();
+</script>
+</body>
+</html>
